@@ -42,7 +42,7 @@ public:
 
     const QVector<DnsQuestion> &questions() const;
     void setQuestions(const QVector<DnsQuestion> &questions);
-    void setQuestion(const DnsQuestion &quession);
+    void addQuestion(const DnsQuestion &quession);
 
     const QVector<DnsResourceRecord> &answers() const;
 

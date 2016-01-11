@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
     }
 
     DnsPacket requestPacket;
-    //requestPacket.setQuestion( DnsQuestion("119.131.240.87.in-addr.arpa", RRTypes::PTR) );
-    requestPacket.setQuestion( DnsQuestion::getMailExchanger("wikipedia.org") );
+    requestPacket.addQuestion( DnsQuestion::getName("119.131.240.87") );
+    requestPacket.addQuestion( DnsQuestion::getMailExchanger("mail.ru") );
     udp.writeDatagram( requestPacket.toByteArray(), QHostAddress("8.8.8.8"), 53 );
 
     udp.waitForReadyRead();
@@ -34,6 +34,6 @@ int main(int argc, char *argv[])
     for ( auto & q : packet.questions() )
         qDebug() << q.domainName() << q.type() << q.reqClass();
     for ( DnsResourceRecord a : packet.answers() )
-        qDebug() << a.domainName() << a.resourceData();
+        qDebug() << a.domainName() << a.toString();
 
 }

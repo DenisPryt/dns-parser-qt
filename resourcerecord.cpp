@@ -123,17 +123,12 @@ void DnsResourceRecord::clear()
 QByteArray DnsResourceRecord::toBytes() const
 {
     QByteArray res = DnsQuestion::toBytes();
-    QDataStream( &res, QIODevice::Append ) << m_ttl << quint16( m_resourceData.size() );
+    //QDataStream( &res, QIODevice::Append ) << m_ttl << quint16( m_resourceData.size() );
 
-    return res + m_resourceData;
+    return res;// + m_resourceData;
 }
 
-const QByteArray & DnsResourceRecord::resourceData() const
-{
-    return m_resourceData;
-}
-
-void DnsResourceRecord::setResourceData(const QByteArray &resData)
+void DnsResourceRecord::setVariantResourceData(const QVariant &resData)
 {
     m_resourceData = resData;
 }
@@ -150,23 +145,7 @@ void DnsResourceRecord::setTtl(const quint32 &ttl)
 
 QVariant DnsResourceRecord::variantResourceData() const
 {
-    switch (m_type) {
-    case RRTypes::A     :
-    {
-        Q_ASSERT( m_resourceData.size() == 4 );
-        quint32 ipv4addr = 0;
-        auto resDataNoConst = const_cast< QByteArray* >( &m_resourceData );
-        QDataStream( resDataNoConst, QIODevice::ReadOnly ) >> ipv4addr;
-        return QVariant::fromValue( QHostAddress( ipv4addr ) );
-    }
-    case RRTypes::PTR   :
-        return DnsDataStream::fromDomainToString( m_resourceData ).section('.', 1, -1, QString::SectionSkipEmpty);
-    case RRTypes::CNAME :
-        return DnsDataStream::fromDomainToString( m_resourceData );
-    case RRTypes::MX    :
-        return m_resourceData;
-    }
-    return QVariant();
+    return m_resourceData;
 }
 
 QString DnsResourceRecord::toString() const
@@ -175,7 +154,11 @@ QString DnsResourceRecord::toString() const
     case RRTypes::A     : return variantResourceData().value<QHostAddress>().toString();
     case RRTypes::PTR   : return variantResourceData().toString();
     case RRTypes::CNAME : return variantResourceData().toString();
-    case RRTypes::MX    : return variantResourceData().toString();
+    case RRTypes::MX    :
+    {
+                          Preference_Domain data = variantResourceData().value<Preference_Domain>();
+                          return QString::number(data.first) + " " + data.second;
+    }
     }
     return QString();
 }

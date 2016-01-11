@@ -15,7 +15,7 @@ public:
     DnsDataStream& number16( quint16 &number );
     DnsDataStream& number32( quint32 &number );
     DnsDataStream& question( DnsQuestion &question );
-    DnsDataStream& resourceData(QByteArray &resData);
+    DnsDataStream& resourceData(DnsResourceRecord &resData);
     DnsDataStream& resourceRecord( DnsResourceRecord &resRec );
 
 //static

@@ -136,7 +136,12 @@ const QVector<DnsQuestion> & DnsPacket::questions() const
     return m_questions;
 }
 
-void DnsPacket::setQuestion(const DnsQuestion &quession)
+void DnsPacket::setQuestions(const QVector<DnsQuestion> &questions)
+{
+    m_questions = questions;
+}
+
+void DnsPacket::addQuestion(const DnsQuestion &quession)
 {
     m_questions.append( quession );
 }

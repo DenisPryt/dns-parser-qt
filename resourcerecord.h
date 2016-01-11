@@ -7,6 +7,9 @@
 #include <QDebug>
 #include <QVariant>
 
+typedef QPair<quint16, QString> Preference_Domain;
+
+Q_DECLARE_METATYPE( Preference_Domain )
 Q_DECLARE_METATYPE( QHostAddress )
 
 namespace RRTypes {
@@ -79,18 +82,17 @@ public:
     void clear() override;
     QByteArray toBytes() const override;
 
-    const QByteArray &resourceData() const;
-    void setResourceData(const QByteArray & resData);
-
     quint32 ttl() const;
     void setTtl(const quint32 &ttl);
 
+    void setVariantResourceData(const QVariant & resData);
     QVariant variantResourceData() const;
+
     QString  toString() const;
 
 protected:
     quint32         m_ttl;
-    QByteArray      m_resourceData;
+    QVariant        m_resourceData;
 };
 
 #endif // RESOURCERECORD_H

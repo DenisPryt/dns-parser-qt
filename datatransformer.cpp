@@ -54,13 +54,41 @@ DnsDataStream &DnsDataStream::question(DnsQuestion &question)
     return *this;
 }
 
-DnsDataStream &DnsDataStream::resourceData(QByteArray &resData )
+DnsDataStream &DnsDataStream::resourceData(DnsResourceRecord &resData )
 {
     quint16 len = 0;
     number16( len );
-    resData = m_dnsPacket->mid( m_position, len );
-    Q_ASSERT( resData.size() == len );
+    QByteArray resDataBytes = m_dnsPacket->mid( m_position, len );
+    Q_ASSERT( resDataBytes.size() == len );
+
+    switch ( resData.type() ) {
+    case RRTypes::A     :
+    {
+        Q_ASSERT( resDataBytes.size() == 4 );
+        quint32 ipv4addr = 0;
+        QDataStream( &resDataBytes, QIODevice::ReadOnly ) >> ipv4addr;
+        resData.setVariantResourceData( QVariant::fromValue( QHostAddress( ipv4addr ) ) );
+        break;
+    }
+    case RRTypes::PTR   :
+        resData.setVariantResourceData( fromDomainToString( *m_dnsPacket, m_position ).section('.', 1, -1, QString::SectionSkipEmpty) );
+        break;
+    case RRTypes::CNAME :
+        resData.setVariantResourceData( fromDomainToString( *m_dnsPacket, m_position ) );
+        break;
+    case RRTypes::MX    :
+    {
+        quint16 preference = 0;
+        QDataStream( &resDataBytes, QIODevice::ReadOnly ) >> preference;
+        QString domain = fromDomainToString( *m_dnsPacket, m_position + 2 );
+        resData.setVariantResourceData( QVariant::fromValue<Preference_Domain>( qMakePair(preference, domain) ) );
+        break;
+    }
+    }
+
+    //QString domain = fromDomainToString( *m_dnsPacket, m_position + 2 );
     m_position += len;
+
     return *this;
 }
 
@@ -68,10 +96,9 @@ DnsDataStream &DnsDataStream::resourceRecord(DnsResourceRecord &resRec)
 {
     quint32 ttl = 0;
     QByteArray resourceData;
-    question( resRec ).number32( ttl ).resourceData( resourceData );
+    question( resRec ).number32( ttl ).resourceData( resRec );
 
     resRec.setTtl( ttl );
-    resRec.setResourceData( std::move(resourceData) );
 
     return *this;
 }
@@ -127,32 +154,46 @@ QString DnsDataStream::fromDomainToString(const QByteArray &domain, int *posOfEn
 
 QByteArray DnsDataStream::fromDomainToBytes(const QByteArray &packet, int start, int *posOfEnd )
 {
-    QByteArray domain;
+    auto getDomainPiece = [&packet]( int _pieceStart ){
+        uint markLen = packet[ _pieceStart ];
+        if ( markLen == 0 )
+            return QByteArray();
 
-    quint16 indexFromStart = (uchar)packet.at( start );
-    if ( indexFromStart >= 192 ){
-        indexFromStart &= ~192;  // 192 = 11000000
-        indexFromStart  = indexFromStart << 8;
-        indexFromStart |= (uchar)packet.at( start + 1 );
+        return packet.mid( _pieceStart + 1, markLen );
+    };
 
-        int end = packet.indexOf( (char)0, indexFromStart );
-        if ( end < 0 ){
-            return domain;
+    QByteArray result;
+
+    int i = start;
+    for ( i = start; i < packet.size(); ){
+
+        quint16 indexFromStart = (uchar)packet.at( i );
+        if ( indexFromStart >= 192 ){
+            indexFromStart &= ~192;  // 192 = 11000000
+            indexFromStart  = indexFromStart << 8;
+            indexFromStart |= (uchar)packet.at( i + 1 );
+
+            int end = packet.indexOf( (char)0, indexFromStart );
+            Q_ASSERT( end != -1 );
+            QByteArray domainPiece = fromDomainToBytes( packet, indexFromStart );
+            result.append( domainPiece );
+            i += sizeof( quint16 );
+            break;
         }
-        if ( posOfEnd != nullptr ){
-            *posOfEnd = start + sizeof(quint16);
+        else{
+            auto domainPiece = getDomainPiece( i );
+            result.append( domainPiece );
+            i += domainPiece.size() + 1;
+            if ( domainPiece.size() == 0 )
+                break;
+            result.append('.');
         }
-        domain = packet.mid( indexFromStart, end - indexFromStart + 1 );
-        return fromDomainToBytes( domain );
     }
-    else{
-        domain = packet.mid( start );
-        auto res = fromDomainToBytes( domain, posOfEnd );
-        if ( posOfEnd != nullptr ){
-            *posOfEnd += start;
-        }
-        return res;
-    }
+
+    if ( posOfEnd != nullptr )
+        *posOfEnd = i;
+
+    return result;
 }
 
 QString DnsDataStream::fromDomainToString(const QByteArray &packet, int start, int *posOfEnd)
